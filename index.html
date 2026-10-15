@@ -10,9 +10,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Canvas Confetti for victory effect -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Firebase SDK (跨裝置即時同步排行榜) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -254,4 +251,1119 @@
 
                 <!-- Shelter Grid Scrollable Area -->
                 <div class="flex-1 overflow-y-auto max-h-[520px] p-2 bg-slate-100/70 rounded-xl border border-slate-200/60">
-                    <div id="dogGrid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2
+                    <div id="dogGrid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
+                        <!-- Dog Cards JS Injected -->
+                    </div>
+                </div>
+
+                <!-- Weighing Animation / Status Notification Bar -->
+                <div id="weighingStatusBar" class="mt-3 bg-amber-50 rounded-xl p-3 border border-amber-200/80 flex items-center justify-between min-h-[52px]">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl animate-pulse">⚖️</span>
+                        <div>
+                            <div id="statusTitle" class="text-xs font-bold text-amber-900">準備進行體重抽樣</div>
+                            <div id="statusDesc" class="text-[11px] text-amber-700">請選擇抽樣方法或直接點選狗狗進行秤重。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Sample Data Log & Real-time Stats (3 Cols) -->
+        <section class="lg:col-span-3 flex flex-col gap-5">
+            <!-- Sample Data Log -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span class="text-amber-500">📋</span> 抽樣數據紀錄
+                    </h2>
+                    <!-- Tab Toggle for Current Sample vs Trial History -->
+                    <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                        <button id="tabBtnCurrent" onclick="switchRightTab('current')" class="px-2.5 py-1 rounded-md bg-white text-slate-800 shadow-sm">當前樣本</button>
+                        <button id="tabBtnHistory" onclick="switchRightTab('history')" class="px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800">10次歷程</button>
+                    </div>
+                </div>
+
+                <!-- View 1: Current Sample Table -->
+                <div id="viewCurrentSample" class="flex-1 flex flex-col">
+                    <div class="flex-1 overflow-y-auto max-h-[220px] mb-3 bg-slate-50 rounded-xl p-2 border border-slate-200/60">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-200 text-slate-400 font-semibold">
+                                    <th class="pb-1.5 pl-1">編號</th>
+                                    <th class="pb-1.5">體型</th>
+                                    <th class="pb-1.5 text-right pr-1">體重 (kg)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sampleTableBody" class="divide-y divide-slate-100">
+                                <tr id="emptySampleRow">
+                                    <td colspan="3" class="text-center py-8 text-slate-400">尚未抽取任何樣本</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Single Sample Calculation Summary -->
+                    <div class="bg-slate-900 text-white p-3.5 rounded-xl space-y-1.5 mb-3 text-xs">
+                        <div class="text-[11px] text-slate-400 font-bold border-b border-slate-800 pb-1 flex justify-between">
+                            <span>本次單次抽樣數據</span>
+                            <span id="calcN" class="text-amber-300">n = 0 隻</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-300 font-medium">樣本平均體重 (x̄)</span>
+                            <span id="calcMean" class="text-base font-black text-amber-400">-- kg</span>
+                        </div>
+                        <div class="flex justify-between items-center text-slate-300 pt-0.5">
+                            <span>樣本標準差 (s)</span>
+                            <span id="calcSd" class="font-bold text-slate-200">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View 2: Trial History Log Table (Matches Student Worksheet) -->
+                <div id="viewTrialHistory" class="flex-1 flex-col hidden">
+                    <div class="flex-1 overflow-y-auto max-h-[220px] mb-3 bg-indigo-50/50 rounded-xl p-2 border border-indigo-100">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-indigo-200 text-indigo-900 font-bold">
+                                    <th class="pb-1.5 pl-1">次數 (i)</th>
+                                    <th class="pb-1.5">樣本數 n</th>
+                                    <th class="pb-1.5 text-right pr-1">樣本平均 x̄_i</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody" class="divide-y divide-indigo-100">
+                                <tr>
+                                    <td colspan="3" class="text-center py-8 text-indigo-400">尚未累積抽樣歷程</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Cumulative 10-Trial Summary Box -->
+                    <div class="bg-indigo-900 text-white p-3.5 rounded-xl space-y-1.5 mb-3 text-xs">
+                        <div class="text-[11px] text-indigo-200 font-bold border-b border-indigo-800 pb-1 flex justify-between">
+                            <span>工作紙累積實測統計</span>
+                            <span id="histCount" class="text-indigo-300">共 0 次</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-indigo-100 font-medium">平均值的平均數 Mean(x̄)</span>
+                            <span id="histMeanOfMeans" class="text-base font-black text-amber-300">-- kg</span>
+                        </div>
+                        <div class="flex justify-between items-center text-indigo-200 pt-0.5">
+                            <span>平均值的實測方差 Var(x̄)</span>
+                            <span id="histVarOfMeans" class="font-bold text-white">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Guess / Publish Button -->
+                <button id="submitEstimateBtn" onclick="submitGroupEstimate()" disabled
+                        class="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-extrabold py-3.5 px-4 rounded-xl shadow-md transition text-sm flex items-center justify-center gap-2">
+                    🏆 提交估計結果 & 揭曉真相
+                </button>
+            </div>
+
+            <!-- Group Quick Switcher & Info -->
+            <div class="bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl p-4 shadow-sm">
+                <h3 class="font-bold text-xs uppercase tracking-wider text-amber-100 mb-1">課堂活動指示</h3>
+                <p class="text-xs text-white/90 leading-relaxed mb-2">
+                    請進行 10 次抽樣並填寫工作紙第二部分紀錄表，點擊「揭曉真相」驗證小組算出的 Mean(x̄) 與 Var(x̄)！
+                </p>
+                <div class="flex justify-end">
+                    <button onclick="openLeaderboardModal()" class="text-xs bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/30 font-bold transition">
+                        📊 檢視組別排行榜
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL 1: Team Selection Modal -->
+    <div id="teamModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div class="text-center mb-5">
+                <div class="text-4xl mb-2">🐕</div>
+                <h3 class="text-xl font-black text-slate-800">歡迎登場！請選擇您的管理員組別</h3>
+                <p class="text-xs text-slate-500 mt-1">代表您的隊伍進行狗場體重抽樣大挑戰</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-5">
+                <button onclick="selectTeam('第一組')" class="team-btn p-3 rounded-xl border-2 border-slate-200 hover:border-amber-500 hover:bg-amber-50 font-extrabold text-slate-700 transition">
+                    🐾 第一組
+                </button>
+                <button onclick="selectTeam('第二組')" class="team-btn p-3 rounded-xl border-2 border-slate-200 hover:border-amber-500 hover:bg-amber-50 font-extrabold text-slate-700 transition">
+                    🐾 第二組
+                </button>
+                <button onclick="selectTeam('第三組')" class="team-btn p-3 rounded-xl border-2 border-slate-200 hover:border-amber-500 hover:bg-amber-50 font-extrabold text-slate-700 transition">
+                    🐾 第三組
+                </button>
+                <button onclick="selectTeam('第四組')" class="team-btn p-3 rounded-xl border-2 border-slate-200 hover:border-amber-500 hover:bg-amber-50 font-extrabold text-slate-700 transition">
+                    🐾 第四組
+                </button>
+                <button onclick="selectTeam('第五組')" class="team-btn p-3 rounded-xl border-2 border-slate-200 hover:border-amber-500 hover:bg-amber-50 font-extrabold text-slate-700 transition">
+                    🐾 第五組
+                </button>
+                <button onclick="selectTeam('第六組')" class="team-btn p-3 rounded-xl border-2 border-slate-200 hover:border-amber-500 hover:bg-amber-50 font-extrabold text-slate-700 transition">
+                    🐾 第六組
+                </button>
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-xs font-bold text-slate-600 mb-1">或自訂組別名稱：</label>
+                <input type="text" id="customTeamInput" placeholder="例如：超級汪汪隊" 
+                       class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <button onclick="confirmCustomTeam()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-3 rounded-xl shadow-md transition text-sm">
+                確定進入狗場
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Result & Statistical Analysis Modal (Corrected Formulas) -->
+    <div id="resultModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <span class="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full border border-amber-200">
+                        抽樣成果與統計真相揭曉
+                    </span>
+                    <h3 class="text-2xl font-black text-slate-800 mt-1">
+                        🎉 <span id="resTeamName">第一組</span> 統計驗證報告
+                    </h3>
+                </div>
+                <button onclick="closeResultModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl p-1">✕</button>
+            </div>
+
+            <!-- Error and Score Summary Box -->
+            <div class="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-3.5 mb-4 flex flex-wrap justify-between items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🎯</span>
+                    <div>
+                        <span class="text-xs text-amber-800 font-bold block">估計絕對誤差 (|Mean(x̄) - μ|)</span>
+                        <span id="resError" class="text-lg font-black text-amber-950">-- kg</span>
+                    </div>
+                </div>
+                <div>
+                    <span id="resAccuracyScore" class="bg-amber-500 text-white font-extrabold px-3.5 py-1.5 rounded-xl text-xs shadow-sm">
+                        估計精準度: --%
+                    </span>
+                </div>
+            </div>
+
+            <!-- Comparison Block: Cumulative Trials vs Population True Values -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                
+                <!-- Card 1: Cumulative Trials (Worksheet Math) -->
+                <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl flex flex-col justify-between shadow-sm">
+                    <div>
+                        <span class="text-xs text-indigo-700 font-bold block mb-1">1. 本組累積 <span id="resTrialCountLabel">10</span> 次抽樣實測 (工作紙數據)</span>
+                        <div class="space-y-1.5 mt-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-indigo-600 font-medium">樣本平均值的平均數 Mean(x̄):</span>
+                                <span id="resCumulativeMean" class="font-black text-indigo-950 text-lg">-- kg</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-indigo-600 font-medium">樣本平均值的實測方差 Var(x̄):</span>
+                                <span id="resCumulativeVar" class="font-bold text-indigo-900 text-base">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] text-indigo-600/80 block mt-3 border-t border-indigo-200/60 pt-1">公式：∑(x̄_i - Mean)² / m</span>
+                </div>
+
+                <!-- Card 2: True Population Parameters -->
+                <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col justify-between shadow-sm">
+                    <div>
+                        <span class="text-xs text-emerald-700 font-bold block mb-1">2. 總體真實值與理論值 (Theoretical Parameters)</span>
+                        <div class="space-y-1.5 mt-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-emerald-600 font-medium">總體平均數 (μ):</span>
+                                <span id="resTrueMean" class="font-black text-emerald-950 text-lg">-- kg</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-emerald-600 font-medium">總體方差 (σ²):</span>
+                                <span id="resTrueVar" class="font-bold text-emerald-900">--</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs border-t border-emerald-200/60 pt-1.5">
+                                <span class="text-emerald-700 font-bold">理論 Var(X̄) = σ²/n:</span>
+                                <span id="resTheoreticalVar" class="font-black text-emerald-900 text-base">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <span id="resPopSize" class="text-[11px] text-emerald-600/80 block mt-3 border-t border-emerald-200/60 pt-1">(總體 N = 60 隻)</span>
+                </div>
+
+            </div>
+
+            <!-- Variance Relationship Formula Card -->
+            <div class="bg-gradient-to-r from-purple-900 to-indigo-900 text-white p-3.5 rounded-2xl mb-4 text-xs shadow-inner flex flex-wrap justify-between items-center gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📐</span>
+                    <div>
+                        <span class="font-extrabold text-purple-200 block text-xs">數學原理驗證：樣本平均值的理論方差 Var(X̄) = σ² / n</span>
+                        <p class="text-[11px] text-purple-100/90" id="resVarianceFormulaDetail">
+                            計算：總體方差 σ² = -- ，樣本數 n = -- ⟹ 理論 Var(X̄) = --
+                        </p>
+                    </div>
+                </div>
+                <div class="bg-white/10 px-3 py-1 rounded-lg border border-white/20 text-purple-200 font-mono text-[11px] font-bold">
+                    相差 n 倍
+                </div>
+            </div>
+
+            <!-- Distribution Chart Section -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4">
+                <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                            <span>📈 樣本平均值 (x̄) 抽樣分佈直方圖 (500次重複抽樣模擬)</span>
+                            <span id="resMethodBadge" class="text-xs bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full font-semibold">簡單隨機抽樣</span>
+                        </h4>
+                        <p class="text-[11px] text-slate-500 mt-0.5">展示 500 次電腦獨立抽樣中，樣本平均體重 (x̄) 出現在各數值區間的頻率</p>
+                    </div>
+                    
+                    <!-- Toggle Switch for Normal Curve Overlay -->
+                    <label class="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer shadow-sm hover:bg-slate-100 transition">
+                        <input type="checkbox" id="toggleNormalCurve" onchange="toggleNormalCurveOverlay()" checked class="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400">
+                        <span>顯示理論正態分佈 (Normal Curve) 曲線</span>
+                    </label>
+                </div>
+
+                <div class="h-52 relative w-full">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Learning & Discussion Task Section -->
+            <div class="bg-gradient-to-br from-indigo-950 to-slate-900 text-white p-4 rounded-2xl mb-4 border border-indigo-800 shadow-md">
+                <div class="flex items-center gap-2 mb-2 border-b border-indigo-800/80 pb-2">
+                    <span class="text-lg">🎯</span>
+                    <h4 class="font-extrabold text-sm text-indigo-200 tracking-wide">工作紙導出規律對照 (Worksheet Verification)</h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs leading-relaxed">
+                    <div class="bg-white/10 p-3 rounded-xl border border-white/10">
+                        <span class="font-bold text-amber-300 block mb-1">對照 1：期望值 E(X̄) = μ</span>
+                        <p class="text-slate-300">
+                            檢查工作紙上算出 10 次抽樣的 <strong class="text-amber-200">Mean of x̄</strong>（即本介面欄位 2），是否非常接近總體真實平均數 <strong class="text-amber-200">μ = <span id="resTaskMu">--</span> kg</strong>？
+                        </p>
+                    </div>
+                    <div class="bg-white/10 p-3 rounded-xl border border-white/10">
+                        <span class="font-bold text-indigo-300 block mb-1">對照 2：方差關係 Var(X̄) = σ² / n</span>
+                        <p class="text-slate-300">
+                            比較工作紙的 <strong class="text-indigo-200">Var of x̄</strong> 與理論值 <strong class="text-indigo-200">σ²/n</strong>。驗證當樣本數 <span class="font-mono font-bold text-indigo-200">n</span> 增加時，樣本平均值的變異度（波動）是否隨之縮小？
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistical Insight Box -->
+            <div id="resInsightBox" class="bg-amber-50/80 border border-amber-200 p-3.5 rounded-2xl text-xs text-amber-900 space-y-1 mb-4">
+                <div class="font-bold text-xs text-amber-950 flex items-center gap-1.5">
+                    💡 抽樣觀念補充：
+                </div>
+                <p id="resInsightText" class="leading-relaxed text-slate-700">
+                    隨機抽樣提供了無偏的估計！雖然樣本數僅佔總體的一部分，但平均數已經非常接近真實總體值。
+                </p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-3">
+                <button onclick="saveScoreAndShowLeaderboard()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-3 rounded-xl shadow-md transition text-sm">
+                    💾 儲存成績並查看組別排行榜
+                </button>
+                <button onclick="closeResultModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-3 rounded-xl text-sm transition">
+                    返回狗場
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Class Leaderboard Modal -->
+    <div id="leaderboardModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center mb-5">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🏆</span>
+                    <h3 class="text-xl font-black text-slate-800">各小組體重抽樣排行榜</h3>
+                </div>
+                <button onclick="closeLeaderboardModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl p-1">✕</button>
+            </div>
+
+            <div class="overflow-x-auto max-h-[350px] mb-5 border border-slate-200 rounded-2xl">
+                <table class="w-full text-left text-xs sm:text-sm">
+                    <thead class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                        <tr>
+                            <th class="p-3">名次</th>
+                            <th class="p-3">組別名稱</th>
+                            <th class="p-3">使用抽樣方法</th>
+                            <th class="p-3 text-center">樣本數 (n)</th>
+                            <th class="p-3 text-right">估計誤差</th>
+                            <th class="p-3 text-right">綜合得分</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardTbody" class="divide-y divide-slate-100 font-medium">
+                        <!-- JS populated -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <button onclick="clearLeaderboard()" class="text-xs text-red-500 hover:underline">
+                    🗑️ 清空排行榜資料
+                </button>
+                <button onclick="closeLeaderboardModal()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-100 border-t border-slate-200 py-3 text-center text-xs text-slate-500">
+        狗場管理員統計學教學遊戲 &copy; 課堂互動抽樣模組 | 設計用於「母體與樣本」統計概念教學
+    </footer>
+
+    <script>
+        // --- State Management ---
+        let currentTeam = "";
+        let population = []; // Array of dog objects
+        let sampledIndices = new Set();
+        let sampledArray = []; // Current active sampled dog objects
+        let trialHistory = []; // Cumulative sampling trials history
+        let leaderboard = JSON.parse(localStorage.getItem("dog_sampling_leaderboard") || "[]");
+        let chartInstance = null;
+        let trialCount = 0; // Cumulative trial counter
+        let lastSampleWeights = [];
+        let lastPopWeights = [];
+        let samplingReplacementMode = "without"; // 'without' or 'with'
+
+        // Dog Names & Breeds for realistic generation
+        const dogIcons = ['🐶', '🐕', '🦮', '🐕‍🦺', '🐩'];
+        const dogNames = ['小白', '小黑', '阿黃', 'Lucky', 'Cookie', 'Coco', '公爵', '豆豆', '斑斑', '莫卡', '包子', 'Bobby', 'Rocky', 'Teddy', 'MAX', '哈利', '妹頭', '胖虎', '來福', '圓圓'];
+
+        window.onload = function() {
+            generateNewPopulation();
+            openTeamModal();
+            updateLeaderboardUI();
+        };
+
+        function switchRightTab(tab) {
+            const btnCurrent = document.getElementById('tabBtnCurrent');
+            const btnHistory = document.getElementById('tabBtnHistory');
+            const viewCurrent = document.getElementById('viewCurrentSample');
+            const viewHistory = document.getElementById('viewTrialHistory');
+
+            if (tab === 'current') {
+                btnCurrent.className = "px-2.5 py-1 rounded-md bg-white text-slate-800 shadow-sm font-bold";
+                btnHistory.className = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 font-bold";
+                viewCurrent.classList.remove('hidden');
+                viewHistory.classList.add('hidden');
+            } else {
+                btnHistory.className = "px-2.5 py-1 rounded-md bg-white text-indigo-900 shadow-sm font-bold";
+                btnCurrent.className = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 font-bold";
+                viewHistory.classList.remove('hidden');
+                viewCurrent.classList.add('hidden');
+            }
+        }
+
+        function openTeamModal() {
+            document.getElementById('teamModal').classList.remove('hidden');
+        }
+
+        function selectTeam(teamName) {
+            currentTeam = teamName;
+            trialCount = 0;
+            trialHistory = []; // Reset team sampling history
+            updateTrialCountUI();
+            updateHistoryUI();
+            document.getElementById('currentTeamDisplay').innerText = currentTeam;
+            document.getElementById('teamModal').classList.add('hidden');
+            showStatus("歡迎 " + currentTeam + "！", "請選擇抽樣方法並點擊「執行抽樣計畫」。");
+        }
+
+        function confirmCustomTeam() {
+            const val = document.getElementById('customTeamInput').value.trim();
+            if (val) {
+                selectTeam(val);
+            } else {
+                selectTeam("自訂管理員組");
+            }
+        }
+
+        function updateTrialCountUI() {
+            document.getElementById('trialCountBadge').innerText = `${trialCount} 次`;
+        }
+
+        function generateNewPopulation() {
+            population = [];
+            sampledIndices.clear();
+            sampledArray = [];
+            trialHistory = [];
+            trialCount = 0;
+            updateTrialCountUI();
+
+            const N = 60;
+            // Strata proportions: Small (~35%), Medium (~40%), Large (~25%)
+            for (let i = 1; i <= N; i++) {
+                let sizeCategory; 
+                const rand = Math.random();
+                let weight = 0;
+
+                if (rand < 0.35) {
+                    sizeCategory = 'small';
+                    weight = parseFloat((3.5 + Math.random() * 4.5).toFixed(1));
+                } else if (rand < 0.75) {
+                    sizeCategory = 'medium';
+                    weight = parseFloat((9.0 + Math.random() * 11.0).toFixed(1));
+                } else {
+                    sizeCategory = 'large';
+                    weight = parseFloat((21.0 + Math.random() * 17.0).toFixed(1));
+                }
+
+                const name = dogNames[Math.floor(Math.random() * dogNames.length)] + `#${i}`;
+                const icon = dogIcons[Math.floor(Math.random() * dogIcons.length)];
+                const kennelRow = Math.ceil(i / 10);
+
+                population.push({
+                    id: i,
+                    name: name,
+                    sizeCategory: sizeCategory,
+                    weight: weight,
+                    icon: icon,
+                    kennelRow: kennelRow
+                });
+            }
+
+            population.sort((a, b) => {
+                if (a.kennelRow === 1 && b.kennelRow !== 1) return -1;
+                return a.id - b.id;
+            });
+
+            renderGrid();
+            updateSampleStats();
+            updateHistoryUI();
+            showStatus("狗場數據已重新洗牌！", "共有 " + N + " 隻狗狗在園區中等待量測。");
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('dogGrid');
+            grid.innerHTML = '';
+
+            population.forEach((dog, idx) => {
+                const isSelected = sampledIndices.has(idx);
+                
+                let sizeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                if (dog.sizeCategory === 'medium') sizeColor = "bg-blue-100 text-blue-800 border-blue-300";
+                if (dog.sizeCategory === 'large') sizeColor = "bg-purple-100 text-purple-800 border-purple-300";
+
+                const card = document.createElement('div');
+                card.className = `dog-card cursor-pointer p-2 rounded-xl border transition-all relative flex flex-col items-center justify-between min-h-[90px] ${
+                    isSelected 
+                        ? 'bg-amber-100/90 border-amber-500 shadow-md ring-2 ring-amber-400 scale-[1.02]' 
+                        : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                }`;
+                card.onclick = () => toggleManualSelect(idx);
+
+                card.innerHTML = `
+                    <div class="absolute top-1 left-1.5 text-[10px] font-bold text-slate-400">#${dog.id}</div>
+                    ${isSelected ? `<div class="absolute -top-1.5 -right-1.5 bg-amber-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-black shadow">✓</div>` : ''}
+                    
+                    <div class="text-2xl mt-1.5 ${isSelected ? 'scale-110 scale-animation' : ''}">${dog.icon}</div>
+                    
+                    <div class="text-center w-full mt-1">
+                        <div class="text-[11px] font-bold text-slate-700 truncate">${dog.name}</div>
+                        ${isSelected 
+                            ? `<div class="text-xs font-black text-amber-900 bg-amber-200/80 px-1.5 py-0.5 rounded-md mt-0.5">${dog.weight} kg</div>` 
+                            : `<div class="text-[9px] px-1 py-0.2 rounded border ${sizeColor} font-semibold mt-0.5 inline-block">${getSizeLabel(dog.sizeCategory)}</div>`
+                        }
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+
+            document.getElementById('sampleProgressBadge').innerText = `已選: ${sampledArray.length} / ${getDesiredSampleSize()}`;
+        }
+
+        function getSizeLabel(cat) {
+            if (cat === 'small') return '小型';
+            if (cat === 'medium') return '中型';
+            return '大型';
+        }
+
+        function getDesiredSampleSize() {
+            const select = document.getElementById('sampleSizeInput');
+            return parseInt(select.value) || 10;
+        }
+
+        function toggleManualSelect(idx) {
+            document.querySelector('input[name="samplingMethod"][value="manual"]').checked = true;
+
+            const targetN = getDesiredSampleSize();
+            if (targetN >= 100) {
+                showStatus("提示：大樣本請使用自動抽樣", "目標樣本數 n≥100 時，建議選擇自動抽樣方法進行擷取。");
+                return;
+            }
+
+            if (sampledIndices.has(idx)) {
+                sampledIndices.delete(idx);
+                sampledArray = sampledArray.filter(d => d.id !== population[idx].id);
+            } else {
+                if (sampledArray.length >= targetN) {
+                    showStatus("已達樣本數上限", `目前目標抽樣數為 ${targetN} 隻，您可以調高人數或點擊「執行抽樣」將此記錄進工作紙。`);
+                    return;
+                }
+                sampledIndices.add(idx);
+                sampledArray.push(population[idx]);
+            }
+            renderGrid();
+            updateSampleStats();
+        }
+
+        function clearSampleSelection() {
+            sampledIndices.clear();
+            sampledArray = [];
+            renderGrid();
+            updateSampleStats();
+            showStatus("已清空當前樣本", "請重新點選或執行抽樣計畫。");
+        }
+
+        function executeSampling() {
+            const method = document.querySelector('input[name="samplingMethod"]:checked').value;
+            const n = getDesiredSampleSize();
+            sampledIndices.clear();
+            sampledArray = [];
+
+            if (method === 'manual') {
+                if (sampledArray.length < n) {
+                    showStatus("手動模式：請選擇狗狗", `請點選園區中的狗狗至滿 ${n} 隻。`);
+                }
+                recordCurrentTrial();
+                return;
+            }
+
+            if (method === 'random') {
+                if (samplingReplacementMode === 'with') {
+                    // 放回抽樣 (With Replacement)
+                    for (let i = 0; i < n; i++) {
+                        const idx = Math.floor(Math.random() * population.length);
+                        sampledIndices.add(idx);
+                        sampledArray.push(population[idx]);
+                    }
+                    showStatus("簡單隨機抽樣 (放回模式) 完成！", `已採用放回抽樣抽取 ${n} 隻狗狗，同一隻個體可能被重複抽中。`);
+                } else {
+                    // 不放回抽樣 (Without Replacement)
+                    if (n <= population.length) {
+                        let indices = Array.from(Array(population.length).keys());
+                        for (let i = indices.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [indices[i], indices[j]] = [indices[j], indices[i]];
+                        }
+                        indices.slice(0, n).forEach(idx => {
+                            sampledIndices.add(idx);
+                            sampledArray.push(population[idx]);
+                        });
+                    } else {
+                        for (let i = 0; i < n; i++) {
+                            const idx = Math.floor(Math.random() * population.length);
+                            sampledIndices.add(idx);
+                            sampledArray.push(population[idx]);
+                        }
+                    }
+                    showStatus("簡單隨機抽樣 (不放回模式) 完成！", `已不放回抽樣抽取 ${n} 隻狗狗體重數據。`);
+                }
+
+            } else if (method === 'stratified') {
+                const smalls = population.filter(d => d.sizeCategory === 'small');
+                const mediums = population.filter(d => d.sizeCategory === 'medium');
+                const larges = population.filter(d => d.sizeCategory === 'large');
+
+                const nSmall = Math.round((smalls.length / population.length) * n);
+                const nMedium = Math.round((mediums.length / population.length) * n);
+                const nLarge = n - nSmall - nMedium;
+
+                const drawFromList = (list, count) => {
+                    if (samplingReplacementMode === 'with') {
+                        for (let i = 0; i < count; i++) {
+                            const dog = list[Math.floor(Math.random() * list.length)];
+                            sampledArray.push(dog);
+                            const origIdx = population.findIndex(d => d.id === dog.id);
+                            if (origIdx !== -1) sampledIndices.add(origIdx);
+                        }
+                    } else {
+                        const shuffled = [...list].sort(() => Math.random() - 0.5);
+                        for (let i = 0; i < Math.min(count, list.length); i++) {
+                            const dog = shuffled[i];
+                            sampledArray.push(dog);
+                            const origIdx = population.findIndex(d => d.id === dog.id);
+                            if (origIdx !== -1) sampledIndices.add(origIdx);
+                        }
+                    }
+                };
+
+                drawFromList(smalls, Math.max(0, nSmall));
+                drawFromList(mediums, Math.max(0, nMedium));
+                drawFromList(larges, Math.max(0, nLarge));
+
+                showStatus(`分層隨機抽樣 (${samplingReplacementMode === 'with' ? '放回' : '不放回'}) 完成！`, `按體型比例抽取 ${n} 筆數據。`);
+
+            } else if (method === 'systematic') {
+                const step = Math.max(1, Math.floor(population.length / Math.min(n, population.length)));
+                let curr = Math.floor(Math.random() * step);
+
+                for (let i = 0; i < n; i++) {
+                    const idx = curr % population.length;
+                    sampledIndices.add(idx);
+                    sampledArray.push(population[idx]);
+                    curr += step;
+                }
+
+                showStatus("系統抽樣完成！", `依固定間隔規律抽取 ${n} 筆數據。`);
+
+            } else if (method === 'convenience') {
+                const frontRow = population.filter(d => d.kennelRow === 1);
+                for (let i = 0; i < n; i++) {
+                    const dog = frontRow[Math.floor(Math.random() * frontRow.length)];
+                    sampledArray.push(dog);
+                    const origIdx = population.findIndex(d => d.id === dog.id);
+                    if (origIdx !== -1) sampledIndices.add(origIdx);
+                }
+                showStatus("⚠️ 便利抽樣完成！", `在大門口第一排抽取 ${n} 筆數據。`);
+            }
+
+            renderGrid();
+            updateSampleStats();
+            recordCurrentTrial();
+        }
+
+        function recordCurrentTrial() {
+            if (sampledArray.length === 0) return;
+
+            const weights = sampledArray.map(d => d.weight);
+            const sum = weights.reduce((a, b) => a + b, 0);
+            const mean = sum / weights.length;
+
+            let sampleVar = 0;
+            let sd = 0;
+            if (weights.length > 1) {
+                // Sample Variance s^2 (divided by n-1)
+                sampleVar = weights.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (weights.length - 1);
+                sd = Math.sqrt(sampleVar);
+            }
+
+            trialCount++;
+            updateTrialCountUI();
+
+            trialHistory.push({
+                trialNum: trialCount,
+                n: weights.length,
+                mean: mean,
+                variance: sampleVar,
+                sd: sd,
+                weights: [...weights]
+            });
+
+            updateHistoryUI();
+        }
+
+        function updateSampleStats() {
+            const tbody = document.getElementById('sampleTableBody');
+            const submitBtn = document.getElementById('submitEstimateBtn');
+            tbody.innerHTML = '';
+
+            const sampledList = sampledArray;
+
+            if (sampledList.length === 0) {
+                tbody.innerHTML = `<tr id="emptySampleRow"><td colspan="3" class="text-center py-8 text-slate-400">尚未抽取任何樣本</td></tr>`;
+                document.getElementById('calcN').innerText = 'n = 0 隻';
+                document.getElementById('calcMean').innerText = '-- kg';
+                document.getElementById('calcSd').innerText = '--';
+                submitBtn.disabled = trialHistory.length === 0;
+                return;
+            }
+
+            // Fill Table
+            const displayLimit = Math.min(sampledList.length, 50);
+            for (let i = 0; i < displayLimit; i++) {
+                const dog = sampledList[i];
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-100/70 transition";
+                tr.innerHTML = `
+                    <td class="py-1.5 pl-1 font-bold text-slate-700">#${dog.id} ${dog.name}</td>
+                    <td class="py-1.5"><span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-semibold">${getSizeLabel(dog.sizeCategory)}</span></td>
+                    <td class="py-1.5 text-right pr-1 font-black text-amber-900">${dog.weight}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            if (sampledList.length > 50) {
+                const trMore = document.createElement('tr');
+                trMore.className = "bg-amber-50/60 font-bold text-amber-800 text-[11px]";
+                trMore.innerHTML = `<td colspan="3" class="py-2 text-center">... 已隱藏其餘 ${sampledList.length - 50} 筆數據</td>`;
+                tbody.appendChild(trMore);
+            }
+
+            // Single Sample Statistics (Current trial)
+            const weights = sampledList.map(d => d.weight);
+            const sum = weights.reduce((a, b) => a + b, 0);
+            const mean = sum / weights.length;
+
+            let sd = 0;
+            if (weights.length > 1) {
+                const sampleVar = weights.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (weights.length - 1);
+                sd = Math.sqrt(sampleVar);
+            }
+
+            document.getElementById('calcN').innerText = `n = ${weights.length} 隻`;
+            document.getElementById('calcMean').innerText = mean.toFixed(2) + ' kg';
+            document.getElementById('calcSd').innerText = sd.toFixed(2);
+
+            submitBtn.disabled = false;
+        }
+
+        function updateHistoryUI() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+
+            if (trialHistory.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-8 text-indigo-400">尚未累積抽樣歷程</td></tr>`;
+                document.getElementById('histCount').innerText = '共 0 次';
+                document.getElementById('histMeanOfMeans').innerText = '-- kg';
+                document.getElementById('histVarOfMeans').innerText = '--';
+                return;
+            }
+
+            // Fill History Table
+            trialHistory.forEach((t) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-indigo-100/50 transition font-medium";
+                tr.innerHTML = `
+                    <td class="py-1.5 pl-1 font-bold text-indigo-950">第 ${t.trialNum} 次</td>
+                    <td class="py-1.5 text-slate-600">${t.n} 隻</td>
+                    <td class="py-1.5 text-right pr-1 font-black text-amber-800">${t.mean.toFixed(2)} kg</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Calculate Cumulative Statistics across m trials (Matches Worksheet second part)
+            const m = trialHistory.length;
+            const means = trialHistory.map(t => t.mean);
+            const meanOfMeans = means.reduce((a, b) => a + b, 0) / m;
+            
+            // Variance of sample means (divided by m, matching worksheet formula: sum(x_bar_i - mean)^2 / m)
+            const varOfMeans = means.reduce((a, b) => a + Math.pow(b - meanOfMeans, 2), 0) / m;
+
+            document.getElementById('histCount').innerText = `共 ${m} 次`;
+            document.getElementById('histMeanOfMeans').innerText = meanOfMeans.toFixed(2) + ' kg';
+            document.getElementById('histVarOfMeans').innerText = varOfMeans.toFixed(2);
+        }
+
+        function showStatus(title, desc) {
+            document.getElementById('statusTitle').innerText = title;
+            document.getElementById('statusDesc').innerText = desc;
+        }
+
+        function submitGroupEstimate() {
+            if (!currentTeam) {
+                openTeamModal();
+                return;
+            }
+
+            if (trialHistory.length === 0 && sampledArray.length > 0) {
+                recordCurrentTrial();
+            }
+
+            if (trialHistory.length === 0) return;
+
+            // 1. True Population Parameters (μ and σ²)
+            const popWeights = population.map(d => d.weight);
+            const N = population.length;
+            const popSum = popWeights.reduce((a, b) => a + b, 0);
+            const trueMean = popSum / N;
+            const trueVar = popWeights.reduce((a, b) => a + Math.pow(b - trueMean, 2), 0) / N;
+
+            // 2. Cumulative Trial Empirical Stats
+            const m = trialHistory.length;
+            const trialMeans = trialHistory.map(t => t.mean);
+            const cumulativeMean = trialMeans.reduce((a, b) => a + b, 0) / m;
+            const cumulativeVar = trialMeans.reduce((a, b) => a + Math.pow(b - cumulativeMean, 2), 0) / m;
+
+            // 3. Single Active Trial Stats for chart rendering
+            const lastTrial = trialHistory[trialHistory.length - 1];
+            const n = lastTrial.n;
+
+            // Theoretical Sampling Variance Calculation
+            // 放回抽樣: σ² / n
+            // 不放回抽樣: (σ² / n) * [(N - n) / (N - 1)] (有限總體修正 FPC)
+            const standardTheoreticalVar = trueVar / n;
+            const fpcFactor = (N > 1 && n <= N) ? (N - n) / (N - 1) : 1;
+            const fpcTheoreticalVar = standardTheoreticalVar * fpcFactor;
+
+            const theoreticalVar = (samplingReplacementMode === 'with') ? standardTheoreticalVar : fpcTheoreticalVar;
+
+            const absError = Math.abs(cumulativeMean - trueMean);
+            const score = Math.max(0, Math.round(1000 - (absError * 150)));
+            const accuracyPercent = Math.max(0, Math.min(100, Math.round(100 - (absError / trueMean * 100))));
+
+            lastSampleWeights = lastTrial.weights;
+            lastPopWeights = popWeights;
+
+            // Populate Modal Fields
+            document.getElementById('resTeamName').innerText = currentTeam;
+            document.getElementById('resCumulativeMean').innerText = cumulativeMean.toFixed(2) + " kg";
+            document.getElementById('resCumulativeVar').innerText = cumulativeVar.toFixed(2);
+            document.getElementById('resTrialCountLabel').innerText = m;
+
+            document.getElementById('resTrueMean').innerText = trueMean.toFixed(2) + " kg";
+            document.getElementById('resTrueVar').innerText = trueVar.toFixed(2);
+            document.getElementById('resTheoreticalVar').innerText = theoreticalVar.toFixed(2) + (samplingReplacementMode === 'without' ? ' (含 FPC 修正)' : '');
+            document.getElementById('resPopSize').innerText = `(總體 N = ${N} 隻，機制：${samplingReplacementMode === 'with' ? '放回抽樣' : '不放回抽樣'})`;
+
+            if (samplingReplacementMode === 'with') {
+                document.getElementById('resVarianceFormulaDetail').innerHTML = 
+                    `<b>【放回抽樣】</b>理論 Var(X̄) = σ² ÷ n = <b>${trueVar.toFixed(2)}</b> ÷ <b>${n}</b> = <b>${standardTheoreticalVar.toFixed(2)}</b>`;
+            } else {
+                document.getElementById('resVarianceFormulaDetail').innerHTML = 
+                    `<b>【不放回抽樣】</b>理論 Var(X̄) = (σ² ÷ n) × [(N-n)/(N-1)] = <b>${standardTheoreticalVar.toFixed(2)}</b> × <b>${fpcFactor.toFixed(3)}</b> = <b>${fpcTheoreticalVar.toFixed(2)}</b>`;
+            }
+
+            document.getElementById('resTaskMu').innerText = trueMean.toFixed(2);
+            document.getElementById('resError').innerText = absError.toFixed(2) + " kg";
+            document.getElementById('resAccuracyScore').innerText = `估計精準度: ${accuracyPercent}% (得分: ${score})`;
+
+            const method = document.querySelector('input[name="samplingMethod"]:checked').value;
+            const methodNames = {
+                manual: '手動挑選',
+                random: `簡單隨機抽樣 (${samplingReplacementMode === 'with' ? '放回' : '不放回'})`,
+                stratified: '分層隨機抽樣',
+                systematic: '系統抽樣',
+                convenience: '便利抽樣(大門口)'
+            };
+            document.getElementById('resMethodBadge').innerText = methodNames[method];
+
+            const insightText = document.getElementById('resInsightText');
+            if (samplingReplacementMode === 'with') {
+                insightText.innerText = `💡 【放回抽樣對照】採用「放回抽樣」時，每次抽取獨立且總體規模無衰減，實測方差 Var(x̄) = ${cumulativeVar.toFixed(2)} 會完美趨近於標準理論公式 σ²/n = ${standardTheoreticalVar.toFixed(2)}！`;
+            } else {
+                insightText.innerText = `💡 【不放回抽樣對照】採用有限總體「不放回抽樣」時，實測方差比無限總體公式 σ²/n (${standardTheoreticalVar.toFixed(2)}) 更小，加上 FPC 修正因子 (${fpcFactor.toFixed(2)}) 後的修正理論值為 ${fpcTheoreticalVar.toFixed(2)}！`;
+            }
+
+            confetti({
+                particleCount: 70,
+                spread: 60,
+                origin: { y: 0.6 }
+            });
+
+            document.getElementById('resultModal').classList.remove('hidden');
+            renderDistributionChart(lastSampleWeights, popWeights);
+
+            window.currentSubmission = {
+                team: currentTeam,
+                method: methodNames[method],
+                n: n,
+                trials: m,
+                error: absError.toFixed(2),
+                score: score,
+                timestamp: new Date().toLocaleTimeString()
+            };
+        }
+
+        function closeResultModal() {
+            document.getElementById('resultModal').classList.add('hidden');
+        }
+
+        function toggleNormalCurveOverlay() {
+            if (lastSampleWeights.length > 0 && lastPopWeights.length > 0) {
+                renderDistributionChart(lastSampleWeights, lastPopWeights);
+            }
+        }
+
+        function renderDistributionChart(sampleWeights, popWeights) {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const showNormal = document.getElementById('toggleNormalCurve').checked;
+
+            const N = popWeights.length;
+            const popMean = popWeights.reduce((a, b) => a + b, 0) / N;
+            const popVar = popWeights.reduce((a, b) => a + Math.pow(b - popMean, 2), 0) / N;
+            
+            const n = sampleWeights.length;
+            
+            // Theoretical Variance considering replacement mode for the 500-sample simulation
+            const fpcFactor = (samplingReplacementMode === 'without' && N > 1 && n <= N) ? (N - n) / (N - 1) : 1;
+            const meanVar = (popVar / n) * fpcFactor; 
+            const meanSe = Math.sqrt(meanVar);
+
+            // Simulate M = 500 repeated samples of size n
+            const M = 500;
+            const sampleMeans = [];
+            
+            for (let sim = 0; sim < M; sim++) {
+                let sum = 0;
+                if (samplingReplacementMode === 'with') {
+                    for (let i = 0; i < n; i++) {
+                        const randomDog = popWeights[Math.floor(Math.random() * N)];
+                        sum += randomDog;
+                    }
+                } else {
+                    const shuffled = [...popWeights];
+                    for (let i = shuffled.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                    }
+                    for (let i = 0; i < Math.min(n, N); i++) {
+                        sum += shuffled[i];
+                    }
+                }
+                sampleMeans.push(sum / n);
+            }
+
+            const minX = Math.max(0, popMean - 3.5 * meanSe);
+            const maxX = popMean + 3.5 * meanSe;
+            const numBins = 10;
+            const binWidth = (maxX - minX) / numBins;
+
+            const binLabels = [];
+            const binCounts = new Array(numBins).fill(0);
+            const binMids = [];
+
+            for (let b = 0; b < numBins; b++) {
+                const start = minX + b * binWidth;
+                const end = start + binWidth;
+                const mid = start + binWidth / 2;
+                binMids.push(mid);
+                binLabels.push(`${start.toFixed(1)}-${end.toFixed(1)}kg`);
+            }
+
+            sampleMeans.forEach(m => {
+                let idx = Math.floor((m - minX) / binWidth);
+                if (idx < 0) idx = 0;
+                if (idx >= numBins) idx = numBins - 1;
+                binCounts[idx]++;
+            });
+
+            const normalCurveCounts = binMids.map(x => {
+                const pdf = (1 / (meanSe * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - popMean) / meanSe, 2));
+                return (M * pdf * binWidth).toFixed(1);
+            });
+
+            const datasets = [
+                {
+                    type: 'bar',
+                    label: `樣本平均值 (x̄) 出現次數 (${samplingReplacementMode === 'with' ? '放回' : '不放回'}, 共 ${M} 次模擬)`,
+                    data: binCounts,
+                    backgroundColor: 'rgba(245, 158, 11, 0.75)',
+                    borderColor: 'rgb(245, 158, 11)',
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    order: 2
+                }
+            ];
+
+            if (showNormal) {
+                datasets.push({
+                    type: 'line',
+                    label: `理論正態分佈 N(μ=${popMean.toFixed(1)}, Var=${meanVar.toFixed(2)})`,
+                    data: normalCurveCounts,
+                    borderColor: 'rgb(239, 68, 68)',
+                    borderWidth: 2.5,
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointBackgroundColor: 'rgb(239, 68, 68)',
+                    order: 1
+                });
+            }
+
+            chartInstance = new Chart(ctx, {
+                data: {
+                    labels: binLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' 次';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: '出現次數 (頻率)' }
+                        },
+                        x: {
+                            title: { display: true, text: '樣本平均體重 x̄ 區間 (kg)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function saveScoreAndShowLeaderboard() {
+            if (window.currentSubmission) {
+                leaderboard.push(window.currentSubmission);
+                leaderboard.sort((a, b) => b.score - a.score);
+                localStorage.setItem("dog_sampling_leaderboard", JSON.stringify(leaderboard));
+                window.currentSubmission = null;
+            }
+            closeResultModal();
+            openLeaderboardModal();
+        }
+
+        function openLeaderboardModal() {
+            updateLeaderboardUI();
+            document.getElementById('leaderboardModal').classList.remove('hidden');
+        }
+
+        function closeLeaderboardModal() {
+            document.getElementById('leaderboardModal').classList.add('hidden');
+        }
+
+        function updateLeaderboardUI() {
+            const tbody = document.getElementById('leaderboardTbody');
+            tbody.innerHTML = '';
+
+            if (leaderboard.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">尚無競賽紀錄，快邀請各組代表進行挑戰！</td></tr>`;
+                return;
+            }
+
+            leaderboard.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = idx === 0 ? 'bg-amber-50/60 font-bold' : 'hover:bg-slate-50';
+                
+                let rankBadge = `${idx + 1}`;
+                if (idx === 0) rankBadge = '🥇 1';
+                if (idx === 1) rankBadge = '🥈 2';
+                if (idx === 2) rankBadge = '🥉 3';
+
+                tr.innerHTML = `
+                    <td class="p-3 font-extrabold text-amber-900">${rankBadge}</td>
+                    <td class="p-3 font-bold text-slate-800">${item.team}</td>
+                    <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs">${item.method} (共${item.trials||1}次)</span></td>
+                    <td class="p-3 text-center">${item.n} 隻</td>
+                    <td class="p-3 text-right font-semibold text-slate-700">${item.error} kg</td>
+                    <td class="p-3 text-right font-black text-amber-600">${item.score} 分</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function clearLeaderboard() {
+            leaderboard = [];
+            localStorage.removeItem("dog_sampling_leaderboard");
+            updateLeaderboardUI();
+        }
+    </script>
+</body>
+</html>
