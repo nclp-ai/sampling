@@ -12,6 +12,11 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (v8 Version for Realtime Database) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         body {
             font-family: 'Noto Sans TC', 'Plus Jakarta Sans', sans-serif;
@@ -421,7 +426,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: Result & Statistical Analysis Modal (Corrected Formulas) -->
+    <!-- MODAL 2: Result & Statistical Analysis Modal -->
     <div id="resultModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div class="flex justify-between items-start mb-4">
@@ -586,7 +591,7 @@
             <div class="flex justify-between items-center mb-5">
                 <div class="flex items-center gap-2">
                     <span class="text-2xl">🏆</span>
-                    <h3 class="text-xl font-black text-slate-800">各小組體重抽樣排行榜</h3>
+                    <h3 class="text-xl font-black text-slate-800">各小組體重抽樣排行榜 (雲端即時同步)</h3>
                 </div>
                 <button onclick="closeLeaderboardModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl p-1">✕</button>
             </div>
@@ -604,7 +609,7 @@
                         </tr>
                     </thead>
                     <tbody id="leaderboardTbody" class="divide-y divide-slate-100 font-medium">
-                        <!-- JS populated -->
+                        <!-- JS populated from Firebase -->
                     </tbody>
                 </table>
             </div>
@@ -626,13 +631,30 @@
     </footer>
 
     <script>
+        // --- Firebase Config & Initialization ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyCV7Me1aO_K_wZNy16qUNFiNz5-BXo2Kaw",
+          authDomain: "sampling-distribution.firebaseapp.com",
+          databaseURL: "https://sampling-distribution-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "sampling-distribution",
+          storageBucket: "sampling-distribution.firebasestorage.app",
+          messagingSenderId: "202635276123",
+          appId: "1:202635276123:web:12d19ebeb41ecdc794f47e"
+        };
+
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+        const database = firebase.database();
+        const leaderboardRef = database.ref("leaderboard");
+
         // --- State Management ---
         let currentTeam = "";
         let population = []; // Array of dog objects
         let sampledIndices = new Set();
         let sampledArray = []; // Current active sampled dog objects
         let trialHistory = []; // Cumulative sampling trials history
-        let leaderboard = JSON.parse(localStorage.getItem("dog_sampling_leaderboard") || "[]");
+        let leaderboard = []; // Loaded in real-time from Firebase
         let chartInstance = null;
         let trialCount = 0; // Cumulative trial counter
         let lastSampleWeights = [];
@@ -646,8 +668,23 @@
         window.onload = function() {
             generateNewPopulation();
             openTeamModal();
-            updateLeaderboardUI();
+            listenToLeaderboard();
         };
+
+        // Firebase Realtime Listener for Leaderboard
+        function listenToLeaderboard() {
+            leaderboardRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                leaderboard = [];
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        leaderboard.push(data[key]);
+                    });
+                    leaderboard.sort((a, b) => b.score - a.score);
+                }
+                updateLeaderboardUI();
+            });
+        }
 
         function switchRightTab(tab) {
             const btnCurrent = document.getElementById('tabBtnCurrent');
@@ -1309,11 +1346,10 @@
             });
         }
 
+        // Save Score to Firebase Realtime Database
         function saveScoreAndShowLeaderboard() {
             if (window.currentSubmission) {
-                leaderboard.push(window.currentSubmission);
-                leaderboard.sort((a, b) => b.score - a.score);
-                localStorage.setItem("dog_sampling_leaderboard", JSON.stringify(leaderboard));
+                leaderboardRef.push(window.currentSubmission);
                 window.currentSubmission = null;
             }
             closeResultModal();
@@ -1359,10 +1395,11 @@
             });
         }
 
+        // Clear Leaderboard on Firebase
         function clearLeaderboard() {
-            leaderboard = [];
-            localStorage.removeItem("dog_sampling_leaderboard");
-            updateLeaderboardUI();
+            if (confirm("確定要清空雲端排行榜上的所有紀錄嗎？")) {
+                leaderboardRef.remove();
+            }
         }
     </script>
 </body>
